@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghost-recon"
+version = "1.0.0"
+description = "Reconnaissance that thinks about what it finds"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [{name = "invaen"}]
+keywords = ["security", "reconnaissance", "bug-bounty", "penetration-testing", "subdomain-enumeration"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+
+[project.scripts]
+ghost-recon = "ghost_recon:main"
+
+[project.urls]
+Homepage = "https://github.com/invaen/ghost-recon"
+Issues = "https://github.com/invaen/ghost-recon/issues"
