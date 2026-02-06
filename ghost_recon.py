@@ -143,6 +143,16 @@ class GhostRecon:
             'search', 'queue', 'worker', 'cron', 'scheduler', 'notify',
             'email', 'mx', 'autodiscover', 'exchange', 'owa',
             'vault', 'secrets', 'config', 'consul', 'etcd', 'zk',
+            # Cloud & DevOps
+            'k8s', 'kubernetes', 'docker', 'registry', 'harbor', 'argocd',
+            'terraform', 'ansible', 'puppet', 'chef',
+            # Observability
+            'jaeger', 'zipkin', 'datadog', 'newrelic', 'sentry', 'pagerduty',
+            # SSO / Identity
+            'idp', 'identity', 'keycloak', 'okta', 'saml', 'adfs',
+            # Misc services
+            'minio', 's3', 'storage', 'bucket', 'cdn2', 'preview',
+            'canary', 'nightly', 'release', 'hotfix',
         ]
 
         def check_subdomain(sub):
@@ -359,10 +369,13 @@ class GhostRecon:
             21: 'FTP', 22: 'SSH', 23: 'Telnet', 25: 'SMTP',
             53: 'DNS', 80: 'HTTP', 110: 'POP3', 143: 'IMAP',
             443: 'HTTPS', 445: 'SMB', 993: 'IMAPS', 995: 'POP3S',
-            1433: 'MSSQL', 3306: 'MySQL', 3389: 'RDP',
-            5432: 'PostgreSQL', 5900: 'VNC', 6379: 'Redis',
-            8080: 'HTTP-Alt', 8443: 'HTTPS-Alt', 8888: 'HTTP-Alt2',
-            9200: 'Elasticsearch', 9300: 'ES-Transport', 27017: 'MongoDB',
+            1433: 'MSSQL', 2049: 'NFS', 3000: 'Dev-HTTP',
+            3306: 'MySQL', 3389: 'RDP', 4443: 'HTTPS-Alt3',
+            5000: 'Dev-HTTP2', 5432: 'PostgreSQL', 5900: 'VNC',
+            6379: 'Redis', 8000: 'Dev-HTTP3', 8080: 'HTTP-Alt',
+            8443: 'HTTPS-Alt', 8888: 'HTTP-Alt2', 9090: 'Prometheus',
+            9200: 'Elasticsearch', 9300: 'ES-Transport',
+            11211: 'Memcached', 15672: 'RabbitMQ', 27017: 'MongoDB',
         }
 
         open_ports = {}
@@ -394,7 +407,7 @@ class GhostRecon:
         if not hosts_to_scan:
             hosts_to_scan = [self.target]
 
-        self.log(f"Port scanning {len(hosts_to_scan)} hosts (24 common ports)...")
+        self.log(f"Port scanning {len(hosts_to_scan)} hosts (32 common ports)...")
 
         for host in hosts_to_scan:
             self.log(f"  Scanning {host}...")
