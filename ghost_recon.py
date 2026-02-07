@@ -17,13 +17,11 @@ Usage:
 import subprocess
 import json
 import sys
-import os
 import re
 import argparse
-import hashlib
+import secrets
 import socket
-import struct
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
@@ -347,7 +345,7 @@ class GhostRecon:
 
         # Check for wildcard DNS
         try:
-            random_sub = f"ghost-recon-wildcard-check-{hashlib.md5(self.target.encode()).hexdigest()[:8]}.{self.target}"
+            random_sub = f"ghost-recon-wildcard-check-{secrets.token_hex(8)}.{self.target}"
             socket.gethostbyname(random_sub)
             self.interesting.append({
                 'type': 'wildcard_dns',
@@ -499,7 +497,7 @@ class GhostRecon:
             if not_after:
                 try:
                     expiry = datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')
-                    days_until_expiry = (expiry - datetime.utcnow()).days
+                    days_until_expiry = (expiry - datetime.now(timezone.utc).replace(tzinfo=None)).days
                 except Exception:
                     pass
 
@@ -1144,14 +1142,14 @@ def main():
 examples:
   ghost-recon target.com                Basic scan
   ghost-recon target.com --deep         Full scan with endpoint discovery
-  ghost-recon target.com --stealth      Passive only (no active connections)
+  ghost-recon target.com --stealth      Skip subfinder/port scan
   ghost-recon target.com --ports        Include port scanning
   ghost-recon target.com --deep --ports Full scan with ports
         """
     )
     parser.add_argument('target', help='Target domain (e.g., example.com)')
     parser.add_argument('--deep', action='store_true', help='Deep scan with endpoint discovery')
-    parser.add_argument('--stealth', action='store_true', help='Stealth mode (passive only)')
+    parser.add_argument('--stealth', action='store_true', help='Stealth mode (skips subfinder and port scanning)')
     parser.add_argument('--ports', action='store_true', help='Include port scanning')
     parser.add_argument('-o', '--output', help='Output directory')
     parser.add_argument('--version', action='version', version=f'Ghost Recon v{VERSION}')

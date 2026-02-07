@@ -44,12 +44,12 @@ Security Scores:
 - **TLS certificate analysis** — Validity checks, expiry warnings, issuer identification, SAN extraction for additional subdomains
 - **Technology fingerprinting** — Server, framework, and CDN/WAF detection (nginx, Apache, Cloudflare, AWS CloudFront, Vercel, Akamai, and more)
 - **Security scoring** — 0-100 score per host with letter grades (A-F) based on headers, cookies, TLS, and configuration
-- **Port scanning** — Concurrent TCP scan on 24 common service ports with database/management exposure alerts
+- **Port scanning** — Concurrent TCP scan on 32 common service ports with database/management exposure alerts
 - **Endpoint discovery** — 50+ sensitive path checks (.git, .env, swagger, graphql, admin, metrics, user enumeration)
 - **Intelligent analysis** — Reasoning layer correlates findings into actionable conclusions
 - **Dual reporting** — JSON (machine-readable) and Markdown (human-readable) reports
 - **Zero external dependencies** — Pure Python 3 standard library
-- **Stealth mode** — Passive-only enumeration (no active connections to target)
+- **Stealth mode** — Skips subfinder and port scanning, but still performs DNS brute force, HTTP probing, and TLS checks
 
 ## Install
 
@@ -87,7 +87,7 @@ ghost-recon target.com --ports
 # Full scan — everything enabled
 ghost-recon target.com --deep --ports
 
-# Stealth mode — passive sources only, no active connections
+# Stealth mode — skips subfinder/port scanning, still does DNS/HTTP/TLS checks
 ghost-recon target.com --stealth
 
 # Custom output directory
@@ -147,7 +147,7 @@ Phase 5: Technology Fingerprinting + Security Scoring
 └── Security score calculation (0-100, A-F grades)
 
 Phase 6: Port Scanning (--ports)
-├── 24 common TCP ports (concurrent)
+├── 32 common TCP ports (concurrent)
 ├── Database exposure detection (MySQL, PostgreSQL, MongoDB, Redis, Elasticsearch)
 └── Management port alerts (SSH, RDP, VNC)
 
@@ -239,7 +239,7 @@ cat ~/.bounty/targets/target.com/wayback_urls.txt | grep -iE '(admin|config|back
 - Added DNS intelligence phase (MX, TXT, NS, CNAME, SOA, SPF/DMARC analysis, wildcard detection)
 - Added Wayback Machine URL discovery via CDX API
 - Added TLS certificate analysis (validity, expiry, issuer, SAN extraction)
-- Added port scanning (24 common ports, database/management exposure detection)
+- Added port scanning (32 common ports, database/management exposure detection)
 - Added security scoring system (0-100 with A-F grades)
 - Added Markdown report generation
 - Expanded technology detection (CDN/WAF: Cloudflare, CloudFront, Vercel, Akamai, Fastly)
