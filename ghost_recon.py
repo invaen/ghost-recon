@@ -21,6 +21,7 @@ import re
 import argparse
 import secrets
 import socket
+import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -113,7 +114,7 @@ class GhostRecon:
                         if sub and '*' not in sub and sub.endswith(self.target):
                             self.subdomains.add(sub)
             self.log(f"crt.sh: Found {len(self.subdomains)} entries", 'success')
-        except Exception as e:
+        except (urllib.error.URLError, json.JSONDecodeError, socket.timeout, OSError) as e:
             self.log(f"crt.sh failed: {e}", 'warn')
 
     def enum_dns_brute(self):
@@ -158,7 +159,7 @@ class GhostRecon:
             try:
                 socket.gethostbyname(fqdn)
                 return fqdn
-            except Exception:
+            except socket.gaierror:
                 return None
 
         with ThreadPoolExecutor(max_workers=50) as executor:
@@ -183,7 +184,7 @@ class GhostRecon:
             self.log(f"Subfinder: {len(self.subdomains)} total", 'success')
         except FileNotFoundError:
             self.log("Subfinder not installed, skipping", 'warn')
-        except Exception as e:
+        except subprocess.TimeoutExpired as e:
             self.log(f"Subfinder error: {e}", 'warn')
 
     # ==================== WAYBACK MACHINE ====================
@@ -217,7 +218,7 @@ class GhostRecon:
                     host = parsed.netloc.lower()
                     if host and host.endswith(self.target):
                         wb_subs.add(host)
-                except Exception:
+                except (ValueError, AttributeError):
                     pass
 
             new_from_wb = wb_subs - self.subdomains
@@ -251,7 +252,7 @@ class GhostRecon:
                     'note': 'Historical URLs with sensitive patterns — may still be accessible'
                 })
 
-        except Exception as e:
+        except (urllib.error.URLError, json.JSONDecodeError, socket.timeout, OSError) as e:
             self.log(f"Wayback failed: {e}", 'warn')
 
     # ==================== DNS INTELLIGENCE ====================
@@ -265,21 +266,21 @@ class GhostRecon:
         try:
             ips = socket.getaddrinfo(self.target, None, socket.AF_INET)
             records['A'] = list(set(addr[4][0] for addr in ips))
-        except Exception:
+        except (socket.gaierror, OSError):
             records['A'] = []
 
         # AAAA records
         try:
             ips6 = socket.getaddrinfo(self.target, None, socket.AF_INET6)
             records['AAAA'] = list(set(addr[4][0] for addr in ips6))
-        except Exception:
+        except (socket.gaierror, OSError):
             records['AAAA'] = []
 
         # Use dig for MX, TXT, NS, CNAME, SOA if available
         dig_available = True
         try:
             subprocess.run(['dig', '+version'], capture_output=True, timeout=5)
-        except (FileNotFoundError, Exception):
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             dig_available = False
 
         if dig_available:
@@ -292,7 +293,7 @@ class GhostRecon:
                     lines = [l.strip() for l in result.stdout.strip().split('\n') if l.strip()]
                     if lines:
                         records[rtype] = lines
-                except Exception:
+                except (subprocess.TimeoutExpired, OSError):
                     pass
         else:
             self.log("dig not available, DNS limited to A/AAAA", 'warn')
@@ -386,7 +387,7 @@ class GhostRecon:
                 sock.close()
                 if result == 0:
                     return port
-            except Exception:
+            except (socket.error, OSError):
                 pass
             return None
 
@@ -498,7 +499,7 @@ class GhostRecon:
                 try:
                     expiry = datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')
                     days_until_expiry = (expiry - datetime.now(timezone.utc).replace(tzinfo=None)).days
-                except Exception:
+                except (ValueError, TypeError):
                     pass
 
             info = {
@@ -538,7 +539,7 @@ class GhostRecon:
 
             return info
 
-        except Exception:
+        except (socket.error, ssl.SSLError, OSError):
             return None
 
     def run_tls_analysis(self):
@@ -679,7 +680,7 @@ class GhostRecon:
                     results['redirect'] = resp.getheader('Location')
 
                 conn.close()
-            except Exception:
+            except (socket.error, http.client.HTTPException, ssl.SSLError, OSError):
                 pass
 
         return results if (results['http'] or results['https']) else None
@@ -866,8 +867,11 @@ class GhostRecon:
                     resp = conn.getresponse()
 
                     if resp.status == 200:
-                        content_length = resp.getheader('Content-Length', '0')
-                        if int(content_length) > 0:
+                        try:
+                            content_length = int(resp.getheader('Content-Length', '0'))
+                        except (ValueError, TypeError):
+                            content_length = 1
+                        if content_length > 0:
                             found.append({
                                 'path': path,
                                 'status': resp.status,
@@ -885,7 +889,7 @@ class GhostRecon:
                         break
 
                     conn.close()
-                except Exception:
+                except (socket.error, http.client.HTTPException, ssl.SSLError, OSError, ValueError):
                     pass
 
         return found
