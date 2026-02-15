@@ -45,6 +45,11 @@ class C:
     BOLD = '\033[1m'
     E = '\033[0m'
 
+    @classmethod
+    def disable(cls):
+        cls.R = cls.G = cls.Y = cls.B = cls.M = cls.C = cls.W = cls.E = ''
+        cls.BOLD = cls.DIM = ''
+
 
 def banner():
     print(f"""{C.M}
@@ -59,11 +64,12 @@ def banner():
 
 
 class GhostRecon:
-    def __init__(self, target, output_dir=None, deep=False, stealth=False, ports=False):
+    def __init__(self, target, output_dir=None, deep=False, stealth=False, ports=False, json_output=False):
         self.target = target.replace('https://', '').replace('http://', '').rstrip('/')
         self.deep = deep
         self.stealth = stealth
         self.ports = ports
+        self.json_output = json_output
         self.output_dir = output_dir or Path.home() / '.bounty' / 'targets' / self.target
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1063,11 +1069,34 @@ class GhostRecon:
         md_path = self.output_dir / 'report.md'
         md_path.write_text('\n'.join(lines))
 
+    def get_json_report(self):
+        """Return scan results as a JSON-serializable dict."""
+        self.scan_end = datetime.now()
+        duration = (self.scan_end - self.scan_start).total_seconds()
+        return {
+            'version': VERSION,
+            'target': self.target,
+            'scan_start': self.scan_start.isoformat(),
+            'scan_end': self.scan_end.isoformat(),
+            'duration_seconds': round(duration, 1),
+            'subdomains': sorted(self.subdomains),
+            'live_hosts': len(self.live_hosts),
+            'dns_records': self.dns_records,
+            'technologies': self.technologies,
+            'interesting_findings': self.interesting,
+            'attack_surface': self.attack_surface,
+            'wayback_urls_count': len(self.wayback_urls),
+            'port_scan': {h: {str(p): s for p, s in ports.items()} for h, ports in self.port_results.items()},
+            'tls_certificates': {h: {k: v for k, v in info.items() if k != 'host'} for h, info in self.tls_info.items()},
+            'security_scores': self.security_scores,
+        }
+
     # ==================== MAIN EXECUTION ====================
 
     def run(self):
         """Execute full recon pipeline"""
-        banner()
+        if not self.json_output:
+            banner()
         self.scan_start = datetime.now()
         self.log(f"Target: {C.G}{self.target}{C.E}")
         self.log(f"Output: {self.output_dir}")
@@ -1133,7 +1162,10 @@ class GhostRecon:
                         self.log(f"  {C.G}Found:{C.E} {ep['path']} ({ep['status']})", 'success')
 
         # Generate Report
-        self.generate_report()
+        if self.json_output:
+            print(json.dumps(self.get_json_report(), indent=2, default=str))
+        else:
+            self.generate_report()
 
         return self
 
@@ -1156,9 +1188,14 @@ examples:
     parser.add_argument('--stealth', action='store_true', help='Stealth mode (skips subfinder and port scanning)')
     parser.add_argument('--ports', action='store_true', help='Include port scanning')
     parser.add_argument('-o', '--output', help='Output directory')
+    parser.add_argument('--no-color', action='store_true', help='Disable colored output')
+    parser.add_argument('--json', action='store_true', help='Output results as JSON to stdout')
     parser.add_argument('--version', action='version', version=f'Ghost Recon v{VERSION}')
 
     args = parser.parse_args()
+
+    if args.no_color:
+        C.disable()
 
     recon = GhostRecon(
         target=args.target,
@@ -1166,6 +1203,7 @@ examples:
         deep=args.deep,
         stealth=args.stealth,
         ports=args.ports,
+        json_output=args.json,
     )
     recon.run()
 
