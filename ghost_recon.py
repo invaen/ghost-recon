@@ -77,12 +77,13 @@ def validate_domain(domain: str) -> str:
 
 
 class GhostRecon:
-    def __init__(self, target, output_dir=None, deep=False, stealth=False, ports=False, json_output=False):
+    def __init__(self, target, output_dir=None, deep=False, stealth=False, ports=False, json_output=False, insecure=True):
         self.target = validate_domain(target)
         self.deep = deep
         self.stealth = stealth
         self.ports = ports
         self.json_output = json_output
+        self.insecure = insecure
         self.output_dir = output_dir or Path.home() / '.bounty' / 'targets' / self.target
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -98,6 +99,14 @@ class GhostRecon:
         self.security_scores = {}
         self.scan_start = None
         self.scan_end = None
+
+    def _ssl_context(self):
+        """Create SSL context respecting --insecure flag."""
+        ctx = ssl.create_default_context()
+        if self.insecure:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        return ctx
 
     def log(self, msg, level='info'):
         icons = {
@@ -679,10 +688,7 @@ class GhostRecon:
         for scheme in ['https', 'http']:
             try:
                 if scheme == 'https':
-                    context = ssl.create_default_context()
-                    context.check_hostname = False
-                    context.verify_mode = ssl.CERT_NONE
-                    conn = http.client.HTTPSConnection(host, timeout=5, context=context)
+                    conn = http.client.HTTPSConnection(host, timeout=5, context=self._ssl_context())
                 else:
                     conn = http.client.HTTPConnection(host, timeout=5)
 
@@ -884,10 +890,7 @@ class GhostRecon:
             for scheme in ['https', 'http']:
                 try:
                     if scheme == 'https':
-                        context = ssl.create_default_context()
-                        context.check_hostname = False
-                        context.verify_mode = ssl.CERT_NONE
-                        conn = http.client.HTTPSConnection(host, timeout=3, context=context)
+                        conn = http.client.HTTPSConnection(host, timeout=3, context=self._ssl_context())
                     else:
                         conn = http.client.HTTPConnection(host, timeout=3)
 
@@ -1212,6 +1215,10 @@ examples:
     parser.add_argument('-o', '--output', help='Output directory')
     parser.add_argument('--no-color', action='store_true', help='Disable colored output')
     parser.add_argument('--json', action='store_true', help='Output results as JSON to stdout')
+    parser.add_argument('--insecure', action='store_true', default=True,
+                        help='Skip SSL certificate verification (default: on)')
+    parser.add_argument('--no-insecure', action='store_false', dest='insecure',
+                        help='Enable SSL certificate verification')
     parser.add_argument('--version', action='version', version=f'Ghost Recon v{VERSION}')
 
     args = parser.parse_args()
@@ -1227,6 +1234,7 @@ examples:
             stealth=args.stealth,
             ports=args.ports,
             json_output=args.json,
+            insecure=args.insecure,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
