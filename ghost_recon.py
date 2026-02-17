@@ -30,7 +30,7 @@ import ssl
 import http.client
 
 
-VERSION = "2.1.0"
+VERSION = "2.1.1"
 
 
 class C:
@@ -63,9 +63,22 @@ def banner():
     """)
 
 
+def validate_domain(domain: str) -> str:
+    """Validate and normalize a domain name.
+
+    Raises ValueError if the domain is not a valid hostname.
+    """
+    domain = domain.replace('https://', '').replace('http://', '').rstrip('/')
+    if not re.match(r'^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$', domain.lower()):
+        raise ValueError(f"Invalid domain: {domain}")
+    if len(domain) > 253:
+        raise ValueError(f"Domain too long: {len(domain)} chars (max 253)")
+    return domain.lower()
+
+
 class GhostRecon:
     def __init__(self, target, output_dir=None, deep=False, stealth=False, ports=False, json_output=False):
-        self.target = target.replace('https://', '').replace('http://', '').rstrip('/')
+        self.target = validate_domain(target)
         self.deep = deep
         self.stealth = stealth
         self.ports = ports
@@ -503,8 +516,8 @@ class GhostRecon:
             days_until_expiry = None
             if not_after:
                 try:
-                    expiry = datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')
-                    days_until_expiry = (expiry - datetime.now(timezone.utc).replace(tzinfo=None)).days
+                    expiry = datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z').replace(tzinfo=timezone.utc)
+                    days_until_expiry = (expiry - datetime.now(timezone.utc)).days
                 except (ValueError, TypeError):
                     pass
 
@@ -676,9 +689,18 @@ class GhostRecon:
                 conn.request('GET', '/', headers={'User-Agent': 'Mozilla/5.0', 'Host': host})
                 resp = conn.getresponse()
 
+                # Preserve duplicate headers (e.g. Set-Cookie) by grouping values
+                raw_headers = resp.getheaders()
+                headers = {}
+                for name, value in raw_headers:
+                    if name in headers:
+                        headers[name] = headers[name] + ', ' + value
+                    else:
+                        headers[name] = value
+
                 results[scheme] = {
                     'status': resp.status,
-                    'headers': dict(resp.getheaders()),
+                    'headers': headers,
                     'server': resp.getheader('Server', 'Unknown'),
                 }
 
@@ -1197,14 +1219,19 @@ examples:
     if args.no_color:
         C.disable()
 
-    recon = GhostRecon(
-        target=args.target,
-        output_dir=Path(args.output) if args.output else None,
-        deep=args.deep,
-        stealth=args.stealth,
-        ports=args.ports,
-        json_output=args.json,
-    )
+    try:
+        recon = GhostRecon(
+            target=args.target,
+            output_dir=Path(args.output) if args.output else None,
+            deep=args.deep,
+            stealth=args.stealth,
+            ports=args.ports,
+            json_output=args.json,
+        )
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
     recon.run()
 
 
